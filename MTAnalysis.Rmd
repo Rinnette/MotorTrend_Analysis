@@ -1,0 +1,139 @@
+---
+title: "Determining whether automatic or manual transmission is better for MPG"
+author: "Rinnette N. Ramdhanie"
+date: "19 December 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r addLibrary}
+        library(dplyr)
+        library(ggplot2)
+```
+
+```{r setupData}
+        data(mtcars)
+        m <- mtcars
+        m$am = factor(m$am)
+        
+        m <- mutate(m, Transmission = factor(m$am))
+        levels(m$Transmission) = c("Automatic", "Manual")
+```
+
+## Executive Summary
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+## Exploratory data analysis
+Check the structure of the dataset
+
+```{r}
+        str(m)
+```
+
+The variables we are interested in are *mpg* and *am*.  The class of *am* was converted to factor for the purposes of this exercises.
+```{r}
+        m$am = factor(m$am)
+
+```
+
+Checked the summary of *mpg*.  Also separated the data in two groups by transmission type and checked the summary for each group.
+
+```{r summary}
+        summary(m$mpg)
+        table (m$am)
+        ma <- filter(m, am == 0)
+        mm <- filter(m, am == 1)
+        summary(ma$mpg)
+        summary(mm$mpg)
+
+```
+The mean MPG for cars with a manual transmission is higher than that in manual cars.
+
+A boxplot of the data is provided.
+
+```{r boxplotAM}
+        ## include main heading and resize
+        m <- mutate(m, Transmission = factor(m$am))
+        levels(m$Transmission) = c("Automatic", "Manual")
+        ggplot(m, aes(x=Transmission, y=mpg, fill = Transmission)) + geom_boxplot()
+
+```
+Clearly indicates that manual cars have a higher MPG than automatic cars.
+
+
+
+## Model selection and strategy
+Outcome is continuous and predictor is a factor variable. 
+
+Two methods used:
+
+* Linear regression
+* ANOVA - does MPG depend on transmission type
+* OLS regression
+* probit model
+
+
+## Linear regression
+
+Use regression $$Y_i = \beta_0 + \beta_1X_i + \varepsilon$$
+where $X_i$ is a dummy variable defined as 
+$$X_i = 
+\left\{
+    \begin{array}{l}
+      0 \text{ if transmission is automatic}\\
+      1 \text{ if transmission is manual}
+    \end{array}
+  \right.$$
+
+This is how the data looks on a scatterplot.
+
+```{r}
+        ## resize this plot and include a main title and axes labels
+        ## include red dots for means of each group?
+        ggplot(m, aes(x=am, y=mpg)) + 
+                geom_point()
+```
+
+Since the regressor (transmission type) has 2 discrete values, the coefficients in this regression model will be interpreted as follows:
+
+$$E(Y_i|X_i = 0) = \beta_0 \text{ where } \beta_0 \text{ is the expected MPG when transmission type is Automatic}$$
+$$E(Y_i|X_i = 1) = \beta_0 + \beta_1 $$
+Therefore $\beta_1$ is the difference in expected MPG between Automatic and Manual transmission type.
+
+Regression model follows.
+
+```{r lmModel, echo = TRUE}
+        model1 <- lm(mpg ~ am, m)
+        round(summary(model1)$coef, 4)
+```
+
+### Interpretation of coefficients
+The expected MPG of cars with an automatic transmission is $17.15$ while that of cars with a manual transmission is $17.15 + 7.24 = 24.38$
+
+### Checking signifiance in difference of group means
+We assess the significance in the difference of the group means by using a two-tailed test where $H_0: \beta_1 = 0$ and $H_a: \beta_1 > 0$.
+
+Since the $t$ $value = 4.11 > 1.96$,  we reject $H_0$  at a $5\%$ level of significance.  The same conclusion results when using the $p-value = 0.00029 < 0.05$ showing that there is a statistically significant difference in the group means.
+
+### check residuals?
+
+
+## Two-way ANOVA
+
+
+
+```{r}
+        model2 <- aov(mpg ~ am, m)
+        summary(model2)
+```
+
+Since the $p-value = 0.00029 < 0.05$, transmission type is statistically significant and affects MPG.
+
