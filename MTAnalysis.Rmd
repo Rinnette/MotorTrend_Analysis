@@ -14,15 +14,16 @@ knitr::opts_chunk$set(echo = FALSE)
 ```{r addLibrary}
         library(dplyr)
         library(ggplot2)
+        library(caret)
 ```
 
 ```{r setupData}
         data(mtcars)
         m <- mtcars
-        m$am = factor(m$am)
+       # m$am = factor(m$am, levels = c("Automatic", "Manual"))
         
-        m <- mutate(m, Transmission = factor(m$am))
-        levels(m$Transmission) = c("Automatic", "Manual")
+       # m <- mutate(m, Transmission = factor(m$am))
+      #  levels(m$Transmission) = c("Automatic", "Manual")
 ```
 
 ## Executive Summary
@@ -32,98 +33,154 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ## Exploratory data analysis
-Check the structure of the dataset
+Checked the structure, summary and distribution of the transmission types.
 
 ```{r}
         str(m)
+        summary(m$mpg)
+        table (m$am)
 ```
 
-The variables we are interested in are *mpg* and *am*.  The class of *am* was converted to factor for the purposes of this exercises.
-```{r}
-        m$am = factor(m$am)
-
-```
 
 Checked the summary of *mpg*.  Also separated the data in two groups by transmission type and checked the summary for each group.
 
-```{r summary}
-        summary(m$mpg)
-        table (m$am)
-        ma <- filter(m, am == 0)
-        mm <- filter(m, am == 1)
-        summary(ma$mpg)
-        summary(mm$mpg)
-
-```
-The mean MPG for cars with a manual transmission is higher than that in manual cars.
-
-A boxplot of the data is provided.
+A boxplot of the data was done on mpg and transmission type.
 
 ```{r boxplotAM}
         ## include main heading and resize
         m <- mutate(m, Transmission = factor(m$am))
         levels(m$Transmission) = c("Automatic", "Manual")
+
+        #m$am = factor(m$am)
         ggplot(m, aes(x=Transmission, y=mpg, fill = Transmission)) + geom_boxplot()
 
 ```
-Clearly indicates that manual cars have a higher MPG than automatic cars.
+
+The boxplot is showing that genarally manual cars get higher MPG than automatic cars.
 
 
 
 ## Model selection and strategy
-Outcome is continuous and predictor is a factor variable. 
-
-Two methods used:
-
-* Linear regression
-* ANOVA - does MPG depend on transmission type
-* OLS regression
-* probit model
+In the initial model the outcome is continuous and the predictor is a factor variable, therefore linear regression was used.
 
 
-## Linear regression
-
-Use regression $$Y_i = \beta_0 + \beta_1X_i + \varepsilon$$
-where $X_i$ is a dummy variable defined as 
-$$X_i = 
-\left\{
-    \begin{array}{l}
-      0 \text{ if transmission is automatic}\\
-      1 \text{ if transmission is manual}
-    \end{array}
-  \right.$$
-
-This is how the data looks on a scatterplot.
-
-```{r}
-        ## resize this plot and include a main title and axes labels
-        ## include red dots for means of each group?
-        ggplot(m, aes(x=am, y=mpg)) + 
-                geom_point()
-```
-
-Since the regressor (transmission type) has 2 discrete values, the coefficients in this regression model will be interpreted as follows:
-
-$$E(Y_i|X_i = 0) = \beta_0 \text{ where } \beta_0 \text{ is the expected MPG when transmission type is Automatic}$$
-$$E(Y_i|X_i = 1) = \beta_0 + \beta_1 $$
-Therefore $\beta_1$ is the difference in expected MPG between Automatic and Manual transmission type.
+## Model 1 - Linear regression using a single predictor
+Linear regression was used with MPG as the outcome and *am* the predictor.
 
 Regression model follows.
 
 ```{r lmModel, echo = TRUE}
-        model1 <- lm(mpg ~ am, m)
-        round(summary(model1)$coef, 4)
+        m$am = factor(m$am)
+        m1 <- lm(mpg ~ am, m)
+        summary(m1)
 ```
 
 ### Interpretation of coefficients
 The expected MPG of cars with an automatic transmission is $17.15$ while that of cars with a manual transmission is $17.15 + 7.24 = 24.38$
+
+The Adjusted R-squared value is 0.339 which means that in this model only about 34% of the variation in the *mpg* is explained by the variation in *am*.
+
+
+
+### Checking other variables
+Checking to see how mpg varies with the other variables in the dataset.
+
+```{r checkCor}
+        cor(mtcars$mpg, mtcars)
+
+```
+
+*cyl*, *wt*, *disp*, *hp*, *drat* and *vs* show the highest correlation coefficients.
+
+
+Pairs plots were done for these variables.
+
+```{r fPlot}
+        featurePlot(x=m[, c("cyl", "wt", "disp", "hp", "drat", "vs")], y=m$mpg, plot="pairs")
+        #featurePlot(x=m[, c("qsec", "vs", "gear", "carb")], y=m$mpg, plot="pairs")
+```
+
+The correlation coefficients and scatter plots show strong relationships between *mpg* and *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* (listed in order with *cyl* being the strongest).
+
+The following models were built with the following as predictors:
+
+* *am* + *cyl*
+* *am* + *cyl* + *wt*
+* *am* + *cyl* + *wt* + *disp*
+* *am* + *cyl* + *wt* + *disp* + *hp*
+* *am* + *cyl* + *wt* + *disp* + *hp* + *drat*
+* *am* + *cyl* + *wt* + *disp* + *hp* + *drat* + *vs*
+
+```{r}
+        m$cyl <- factor(m$cyl)
+        m$vs <- factor(m$vs)
+        m2 <- update(m1, .~. + cyl)
+        m3 <- update(m2, .~. + wt)
+        m4 <- update(m3, .~. + disp)
+        m5 <- update(m4, .~. + hp)
+        m6 <- update(m5, .~. + drat)
+        m7 <- update(m6, .~. + vs)
+        
+        ar2 <- c(summary(m2)$adj.r.squared, summary(m3)$adj.r.squared, summary(m4)$adj.r.squared, summary(m5)$adj.r.squared, summary(m6)$adj.r.squared, summary(m7)$adj.r.squared)
+        
+        ar2
+```
+
+The figures show the adjusted R-squared values after each predictor was added.  After adding *drat* the value decreases. Model m5 therefore shows the highest adjusted r-squared of about 83%.
+
+
+## Residuals and Diagnostics
+Plotting residuals and fitted values.
+
+```{r plotResid}
+        plot(m5, which = 1)
+```
+Residuals are almost all on the zero line. Also shows outliers at row numbers 20,  29, and 31.
+
+Checking influence measures ...
+
+```{r}
+        influence.measures(m5)
+```
+
+All the dfbetas and hat values are within the thresholds so therefore the outliers are not very influential over the prediction model.
+
+
+```{r}
+        ## checking normal Q-Q plot
+              plot(m5, which = 2)
+```
+
+Since the points are almost all along the diagonal, this shows that the residuals are approximately normally distributed with mean 0 and standard deviation of 1.
+
+
+
 
 ### Checking signifiance in difference of group means
 We assess the significance in the difference of the group means by using a two-tailed test where $H_0: \beta_1 = 0$ and $H_a: \beta_1 > 0$.
 
 Since the $t$ $value = 4.11 > 1.96$,  we reject $H_0$  at a $5\%$ level of significance.  The same conclusion results when using the $p-value = 0.00029 < 0.05$ showing that there is a statistically significant difference in the group means.
 
-### check residuals?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## Two-way ANOVA
