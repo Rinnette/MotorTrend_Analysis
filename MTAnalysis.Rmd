@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = FALSE)
         library(dplyr)
         library(ggplot2)
         library(caret)
+        library(olsrr)
 ```
 
 ```{r setupData}
@@ -65,9 +66,7 @@ In the initial model the outcome is continuous and the predictor is a factor var
 
 
 ## Model 1 - Linear regression using a single predictor
-Linear regression was used with MPG as the outcome and *am* the predictor.
-
-Regression model follows.
+A linear regression was used with *mpg* as the outcome and *am* the predictor.
 
 ```{r lmModel, echo = TRUE}
         m$am = factor(m$am)
@@ -82,34 +81,33 @@ The Adjusted R-squared value is 0.339 which means that in this model only about 
 
 
 
-### Checking other variables
-Checking to see how mpg varies with the other variables in the dataset.
+### Consideraing other variables as predictors
+The correlation coefficients were checked to see how *mpg* varies with the other variables in the dataset.
 
-```{r checkCor}
+```{r checkCorr}
         cor(mtcars$mpg, mtcars)
-
 ```
 
-*cyl*, *wt*, *disp*, *hp*, *drat* and *vs* show the highest correlation coefficients.
+The variables *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* show the highest correlation coefficients.
 
 
-Pairs plots were done for these variables.
+A pairs plot was done for these variables.
 
 ```{r fPlot}
-        featurePlot(x=m[, c("cyl", "wt", "disp", "hp", "drat", "vs")], y=m$mpg, plot="pairs")
-        #featurePlot(x=m[, c("qsec", "vs", "gear", "carb")], y=m$mpg, plot="pairs")
+        featurePlot(x=m[, c("cyl", "wt", "disp", "hp", "drat", "vs")], y=m$mpg, 
+                    plot="pairs")
 ```
 
-The correlation coefficients and scatter plots show strong relationships between *mpg* and *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* (listed in order with *cyl* being the strongest).
+Looking at the first row, the scatter plots show strong relationships of varying degrees between *mpg* and *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* (listed in order with *cyl* being the strongest).
 
-The following models were built with the following as predictors:
+The following models were built with corresponding predictors:
 
-* *am* + *cyl*
-* *am* + *cyl* + *wt*
-* *am* + *cyl* + *wt* + *disp*
-* *am* + *cyl* + *wt* + *disp* + *hp*
-* *am* + *cyl* + *wt* + *disp* + *hp* + *drat*
-* *am* + *cyl* + *wt* + *disp* + *hp* + *drat* + *vs*
+* m2: *am* + *cyl*
+* m3: *am* + *cyl* + *wt*
+* m4: *am* + *cyl* + *wt* + *disp*
+* m5: *am* + *cyl* + *wt* + *disp* + *hp*
+* m6: *am* + *cyl* + *wt* + *disp* + *hp* + *drat*
+* m7: *am* + *cyl* + *wt* + *disp* + *hp* + *drat* + *vs*
 
 ```{r}
         m$cyl <- factor(m$cyl)
@@ -121,42 +119,50 @@ The following models were built with the following as predictors:
         m6 <- update(m5, .~. + drat)
         m7 <- update(m6, .~. + vs)
         
-        ar2 <- c(summary(m2)$adj.r.squared, summary(m3)$adj.r.squared, summary(m4)$adj.r.squared, summary(m5)$adj.r.squared, summary(m6)$adj.r.squared, summary(m7)$adj.r.squared)
+        mnames <- c("m1", "m2", "m3", "m4", "m5", "m6", "m7")
+        mAR2s <- c(summary(m1)$adj.r.squared, summary(m2)$adj.r.squared, 
+                   summary(m3)$adj.r.squared, summary(m4)$adj.r.squared, 
+                   summary(m5)$adj.r.squared, summary(m6)$adj.r.squared, 
+                   summary(m7)$adj.r.squared)
         
-        ar2
+        data.frame(Model = mnames, AdjRSquared = mAR2s)
 ```
 
-The figures show the adjusted R-squared values after each predictor was added.  After adding *drat* the value decreases. Model m5 therefore shows the highest adjusted r-squared of about 83%.
+The table shows figures for the adjusted R-squared values for each model.  The values increase after each predictor is added until *drat* was added.  Model **m5** therefore shows the highest adjusted r-squared of about 83% so this will be used as the final model.
 
+## Check whether inclusions were necessary
+The anova function was used to check whether the inclusion of each predictor was necessary.
+
+```{r}
+        anova(m1, m2, m3, m4, m5)
+```
+
+Looking at the F statistic and the associated p values, we can see that the inclusion of *cyl*, *wt* and *hp* appeared to be necessary, while the inclusion on the *disp* predictor appeared to have been unnessary as the value 0.89 is greater than 0.05
 
 ## Residuals and Diagnostics
 Plotting residuals and fitted values.
 
 ```{r plotResid}
+        par(mfrow = c(1,2))        
         plot(m5, which = 1)
+        plot(m5, which = 2)
 ```
-Residuals are almost all on the zero line. Also shows outliers at row numbers 20,  29, and 31.
+The residuals are more or less on the zero line - there is some slight variation.  In the Normal Q-Q plot, since the points are almost all along the diagonal, this shows that the residuals are approximately normally distributed with mean 0 and standard deviation of 1.
 
-Checking influence measures ...
+There are also some outliers shown, particularly Toyota Corolla and Fiat 128 which appears in both plots.  To determine how influential these are to the prediction model, some regression diagnostics were checked.
 
-```{r}
-        influence.measures(m5)
-```
-
-All the dfbetas and hat values are within the thresholds so therefore the outliers are not very influential over the prediction model.
-
-
-```{r}
-        ## checking normal Q-Q plot
-              plot(m5, which = 2)
+```{r diagPlots}
+       # par(mfrow = c(2,2))
+        ols_plot_dffits(m5)
+        ols_plot_resid_stud(m5)
+       # ols_plot_resid_stud_fit(m5)
+       # ols_plot_resid_stand(m5)
 ```
 
-Since the points are almost all along the diagonal, this shows that the residuals are approximately normally distributed with mean 0 and standard deviation of 1.
 
 
 
-
-### Checking signifiance in difference of group means
+### Checking significance in difference of group means
 We assess the significance in the difference of the group means by using a two-tailed test where $H_0: \beta_1 = 0$ and $H_a: \beta_1 > 0$.
 
 Since the $t$ $value = 4.11 > 1.96$,  we reject $H_0$  at a $5\%$ level of significance.  The same conclusion results when using the $p-value = 0.00029 < 0.05$ showing that there is a statistically significant difference in the group means.
