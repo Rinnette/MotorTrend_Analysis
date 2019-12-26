@@ -11,96 +11,100 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r addLibrary}
-        library(dplyr)
-        library(ggplot2)
-        library(caret)
-        library(olsrr)
+```{r addLibrary, warning = FALSE, message = FALSE}
+        library(dplyr); library(ggplot2); library(caret); library(olsrr)
 ```
 
 ```{r setupData}
-        data(mtcars)
-        m <- mtcars
-       # m$am = factor(m$am, levels = c("Automatic", "Manual"))
-        
-       # m <- mutate(m, Transmission = factor(m$am))
-      #  levels(m$Transmission) = c("Automatic", "Manual")
+        data(mtcars); m <- mtcars
 ```
 
 ## Executive Summary
+The *Motor Trend* data in the R datasets package was analysed to explore the relationship between miles per gallon (MPG), the outcome, and type of transmission, automatic or manual.  Several models were done using multiple regression and it was shown  that there was an increase of about 1.81 MPG in manual cars compared with automatics cars.  The analysis also showed that number of cylinders, horsepower and weight had an effect on the MPG.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ## Exploratory data analysis
-Checked the structure, summary and distribution of the transmission types.
 
+The Motor Trend data is the *mtcars* dataset which consists of the follow variables:
+
+...
+...
+
+
+The structure of the dataset, summary of the MPG variable and distribution of the transmission types were checked.  Note that in the *am* variable, 0 represents automatic transmission and 1 represents manual transmission.
+
+\scriptsize
 ```{r}
         str(m)
         summary(m$mpg)
         table (m$am)
 ```
+\normalsize
 
+Also checked the average mpg for each type of transmission.
+\scriptsize
+```{r}
+        aggregate(mpg ~ am, m, mean)
+```
+\normalsize
 
-Checked the summary of *mpg*.  Also separated the data in two groups by transmission type and checked the summary for each group.
+This shows that the manual cars in the dataset have on average a higher MPG than the automatics cars. 
 
 A boxplot of the data was done on mpg and transmission type.
 
-```{r boxplotAM}
-        ## include main heading and resize
+```{r boxplotAM, fig.width=5,fig.height=2}
+        ## Boxplot of MPG against trasmission type
         m <- mutate(m, Transmission = factor(m$am))
         levels(m$Transmission) = c("Automatic", "Manual")
-
-        #m$am = factor(m$am)
         ggplot(m, aes(x=Transmission, y=mpg, fill = Transmission)) + geom_boxplot()
 
 ```
 
-The boxplot is showing that genarally manual cars get higher MPG than automatic cars.
-
+The boxplot is also showing that generally manual cars get higher MPG than automatic cars.
 
 
 ## Model selection and strategy
-In the initial model the outcome is continuous and the predictor is a factor variable, therefore linear regression was used.
+An initial model was fitted using linear regression with MPG as the outcome and *am* as the predictor variable.  Note that *am* is a factor variable (0=automatic, 1=manual).  The strategy is to check the adjusted R-squared value of this initial model to determine how much of the variance is explained by the variable *am*.  If it is too low then add another variable to the model and check the adjusted R-squared again.  Repeat this process and stop when the value reaches a maximum.  Note that adjusted R-squared values were used as this takes into considartion the number of predictors in the model and gives a more accurate indication of how variance is affected by the addition of each variable compared to R-squared.
 
+To decide on which variables to add, the correlation coefficients between MPG and the other variables in the dataset were calculated. Those with high correlation were considered.
 
-## Model 1 - Linear regression using a single predictor
-A linear regression was used with *mpg* as the outcome and *am* the predictor.
+Resulting models were then checked using anova to see how necessary it was to add each predictor.  A final model was then determined.
+
+### Model 1 - Linear regression using a single predictor
+A linear regression model was fitted with *mpg* as the outcome and *am* the predictor.
 
 ```{r lmModel, echo = TRUE}
-        m$am = factor(m$am)
-        m1 <- lm(mpg ~ am, m)
-        summary(m1)
+        # Fit Model 1 with am only
+                m$am = factor(m$am)
+                m1 <- lm(mpg ~ am, m)
+                print("Adjusted R-squared of initial model: ")
+                summary(m1)$adj.r.squared
 ```
 
-### Interpretation of coefficients
-The expected MPG of cars with an automatic transmission is $17.15$ while that of cars with a manual transmission is $17.15 + 7.24 = 24.38$
-
-The Adjusted R-squared value is 0.339 which means that in this model only about 34% of the variation in the *mpg* is explained by the variation in *am*.
+The Adjusted R-squared value is 0.339 which means that in this model only about 34% of the variation in the *mpg* is explained by the variation in *am*. This is very low so we add other predictors to the model.
 
 
-
-### Consideraing other variables as predictors
-The correlation coefficients were checked to see how *mpg* varies with the other variables in the dataset.
+### Considering other variables as predictors
+The correlation coefficients were calculated to see how *mpg* varies with the other variables in the dataset.
 
 ```{r checkCorr}
-        cor(mtcars$mpg, mtcars)
+        # Calculate correlation between MPG and all other variables in the dataset
+                cor(mtcars$mpg, mtcars)
 ```
 
 The variables *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* show the highest correlation coefficients.
 
-
 A pairs plot was done for these variables.
 
-```{r fPlot}
-        featurePlot(x=m[, c("cyl", "wt", "disp", "hp", "drat", "vs")], y=m$mpg, 
-                    plot="pairs")
+```{r fPlot, fig.width=7,fig.height=3}
+        # Plot mpg against variables with high correlation coefficients
+                featurePlot(x=m[, c("cyl", "wt", "disp", "hp", "drat", "vs")], 
+                            y=m$mpg, plot="pairs")
 ```
 
-Looking at the first row, the scatter plots show strong relationships of varying degrees between *mpg* and *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* (listed in order with *cyl* being the strongest).
+Looking at the first row, the scatter plots show relationships of varying degrees between *mpg* and *cyl*, *wt*, *disp*, *hp*, *drat* and *vs*, listed in order with *cyl* having the strongest relationship and *vs* the weakest.
 
-The following models were built with corresponding predictors:
+As a result, the following models were built with the predictors identified below:
 
 * m2: *am* + *cyl*
 * m3: *am* + *cyl* + *wt*
@@ -109,49 +113,62 @@ The following models were built with corresponding predictors:
 * m6: *am* + *cyl* + *wt* + *disp* + *hp* + *drat*
 * m7: *am* + *cyl* + *wt* + *disp* + *hp* + *drat* + *vs*
 
-```{r}
-        m$cyl <- factor(m$cyl)
-        m$vs <- factor(m$vs)
-        m2 <- update(m1, .~. + cyl)
-        m3 <- update(m2, .~. + wt)
-        m4 <- update(m3, .~. + disp)
-        m5 <- update(m4, .~. + hp)
-        m6 <- update(m5, .~. + drat)
-        m7 <- update(m6, .~. + vs)
+```{r buildModels}
+        # Build models in stepwise fashion
+                m$cyl <- factor(m$cyl)
+                m$vs <- factor(m$vs)
+                m2 <- update(m1, .~. + cyl)
+                m3 <- update(m2, .~. + wt)
+                m4 <- update(m3, .~. + disp)
+                m5 <- update(m4, .~. + hp)
+                m6 <- update(m5, .~. + drat)
+                m7 <- update(m6, .~. + vs)
         
-        mnames <- c("m1", "m2", "m3", "m4", "m5", "m6", "m7")
-        mAR2s <- c(summary(m1)$adj.r.squared, summary(m2)$adj.r.squared, 
+        # Create data frame of adjusted r-squared values for each model
+                mnames <- c("m1", "m2", "m3", "m4", "m5", "m6", "m7")
+                mAR2s <- c(summary(m1)$adj.r.squared, summary(m2)$adj.r.squared, 
                    summary(m3)$adj.r.squared, summary(m4)$adj.r.squared, 
                    summary(m5)$adj.r.squared, summary(m6)$adj.r.squared, 
                    summary(m7)$adj.r.squared)
-        
-        data.frame(Model = mnames, AdjRSquared = mAR2s)
+                data.frame(Model = mnames, AdjRSquared = mAR2s)
 ```
 
-The table shows figures for the adjusted R-squared values for each model.  The values increase after each predictor is added until *drat* was added.  Model **m5** therefore shows the highest adjusted r-squared of about 83% so this will be used as the final model.
+The table shows figures for the adjusted R-squared values for each model.  The values increase after each predictor is added up until *drat* was added (m6) .  Model **m5** therefore shows the highest adjusted r-squared of about 83% and is a possible final model.
 
 ## Check whether inclusions were necessary
-The anova function was used to check whether the inclusion of each predictor was necessary.
+The anova function was then used to check whether the inclusion of each predictor was necessary.
 
 ```{r}
-        anova(m1, m2, m3, m4, m5)
+        # Check whether the inclusion of each predictor was necessary
+                anova(m1, m2, m3, m4, m5)
 ```
 
-Looking at the F statistic and the associated p values, we can see that the inclusion of *cyl*, *wt* and *hp* appeared to be necessary, while the inclusion on the *disp* predictor appeared to have been unnessary as the value 0.89 is greater than 0.05
+Looking at the p values for the associated F statistic, we can see that the inclusion of *cyl*, *wt* and *hp* appeared to be necessary since these p-values are less than 0.05.  The inclusion on the *disp* predictor however, appeared to have been unnecessary as its p-value of 0.89 is greater than 0.05. The *disp* predictor was then excluded from the final model.
+
+```{r}
+        # Final model fitted
+                mfin <- lm(mpg ~ am + cyl + wt + hp, m)
+```
+The final model therefore included the following predictors: *am*, *cyl*, *wt* and *hp*.  In this model, the Adjusted R squared value is now about 84%.
+
+```{r}
+        print("Adjusted R-squared of final model: ")
+        summary(mfin)$adj.r.squared
+```
 
 ## Residuals and Diagnostics
 Plotting residuals and fitted values.
 
 ```{r plotResid}
         par(mfrow = c(1,2))        
-        plot(m5, which = 1)
-        plot(m5, which = 2)
+        plot(mfin, which = 1)
+        plot(mfin, which = 2)
 ```
-The residuals are more or less on the zero line - there is some slight variation.  In the Normal Q-Q plot, since the points are almost all along the diagonal, this shows that the residuals are approximately normally distributed with mean 0 and standard deviation of 1.
+The residuals are more or less on the zero line - there is some slight variation.  In the Normal Q-Q plot, since the points are almost all along the diagonal, this shows that the residuals are approximately normally distributed.
 
-There are also some outliers shown, particularly Toyota Corolla and Fiat 128 which appears in both plots.  To determine how influential these are to the prediction model, some regression diagnostics were checked.
+There are also some outliers shown, particularly Toyota Corolla and Fiat 128 which appears in both plots.  To determine how influential these are to the prediction model, some regression diagnostics were done: dffits and rstudent were used.
 
-```{r diagPlots}
+```{r diagPlots, fig.width = 7, fig.height=3}
        # par(mfrow = c(2,2))
         ols_plot_dffits(m5)
         ols_plot_resid_stud(m5)
@@ -159,44 +176,22 @@ There are also some outliers shown, particularly Toyota Corolla and Fiat 128 whi
        # ols_plot_resid_stand(m5)
 ```
 
+These plots show that all residuals are within the thresholds for both sets of diagnostic calculations.  Therefore ther are no outliers that has any great influence on the prediction model.
 
 
+### Conclusion
 
-### Checking significance in difference of group means
-We assess the significance in the difference of the group means by using a two-tailed test where $H_0: \beta_1 = 0$ and $H_a: \beta_1 > 0$.
+The p-value of the final model, $1.506 * 1^-{10}$, is very low and means that it describes a significant relationship.
 
-Since the $t$ $value = 4.11 > 1.96$,  we reject $H_0$  at a $5\%$ level of significance.  The same conclusion results when using the $p-value = 0.00029 < 0.05$ showing that there is a statistically significant difference in the group means.
+The following can be interpreted from the coefficients:
 
+* Since there are two factor variables (*am* and *cyl*), the intercept coefficient means that the average MPG for automatic cars with 4 cylinders is on average 33.7
+* Cars with a manual transmission, is associated with an average increase of 1.8 mpg compared to automatic transmission
+* 6 and 8 cylinder vehicles decrease the average mpg by 3.03 and 2.16 respectively
+* MPG is decreased by 2.5 on average for every 1000 lbs increase in weight
+* MPG decreases slightly with increased horsepower.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Two-way ANOVA
-
-
-
-```{r}
-        model2 <- aov(mpg ~ am, m)
-        summary(model2)
+\pagebreak
+## Appendix
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
-
-Since the $p-value = 0.00029 < 0.05$, transmission type is statistically significant and affects MPG.
-
