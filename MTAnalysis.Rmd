@@ -22,23 +22,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Executive Summary
 The *Motor Trend* data in the R datasets package was analysed to explore the relationship between miles per gallon (MPG), the outcome, and type of transmission, automatic or manual.  Several models were done using multiple regression and it was shown that manual cars are better for MPG than automatics cars.  The analysis also showed that number of cylinders, horsepower and weight had an effect on the MPG.
 
-
 ## Exploratory data analysis
-
 The Motor Trend dataset used is the *mtcars* dataset which consists of information on a collection of cars.
 
-The structure of the dataset and the number of vehicles of each transmission type were checked, as well as the average mpg for each type of transmission was calculated.  Note that in the *am* variable, 0 represents automatic transmission and 1 represents manual transmission.  
-
+The structure of the dataset and the number of vehicles with each transmission type were checked, as well as the average mpg for each type of transmission was calculated.  Note that in the *am* variable, 0 represents automatic transmission and 1 represents manual transmission.  
 \scriptsize
 ```{r explData, echo = FALSE}
         str(m); table(m$am); aggregate(mpg ~ am, m, mean)
 ```
 \normalsize
 
-The last set of values shows that the manual cars in the dataset have on average higher MPG than the automatics cars. 
-
-A boxplot of the data was done on mpg and transmission type and this also showed that generally manual cars get higher MPG than automatic cars.  This figure can be found in the Appendix.
-
+A boxplot of the data was done on MPG by transmission type and this showed that there were no outliers and that generally manual cars get higher MPG than automatic cars.  This figure can be found in the Appendix.
 
 ## Model selection and strategy
 An initial model was fitted using linear regression with *mpg* as the outcome and *am* as the predictor variable.  Note that *am* was first converted to a factor variable (0=automatic, 1=manual).  The adjusted R-squared value of this initial model was checked to determine how much of the variance is explained by the variable *am*.  If it is too low then another predictor was added to the model and the adjusted R-squared value was checked again.  This process was repeated until the value reached a maximum.
@@ -51,7 +45,6 @@ Resulting models were then checked using anova to see how necessary it was to ad
 An initial model was fitted with *mpg* as the outcome and *am* the predictor.  Only about 34% of the variation in the *mpg* is explained by the variation in *am*. This is very low so we add other predictors to the model.  Code and summary for the model can be found in the Appendix.  The correlation coefficients were calculated to see how *mpg* varies with the other variables in the dataset.
 
 The variables *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* showed the highest correlation in that order.  As a result, each of these variables were added to the model in turn and the adjusted R-squared values compared after each addition.
-
 \scriptsize
 ```{r buildModels, echo = FALSE}
         # Build models in stepwise fashion
@@ -76,20 +69,15 @@ The variables *cyl*, *wt*, *disp*, *hp*, *drat* and *vs* showed the highest corr
                 data.frame(Model = mnames, Predictors = predictors, AdjRSquared = mAR2s)
 ```
 \normalsize
-
 The table shows figures for the adjusted R-squared values for each model.  The values increase after each predictor is added up until *drat* was added (m6) .  Model **m5** therefore showed the highest adjusted r-squared of about 83% and was a possible final model.
 
 The *anova* function was then used to check whether the inclusion of each predictor was necessary. The code and results can be found in the Appendix.  Looking at the p-values for the associated F statistic, it was seen that the inclusion of *cyl*, *wt* and *hp* appeared to be necessary since these p-values were less than 0.05.  The inclusion of the *disp* predictor however, appeared to have been unnecessary as its p-value of 0.89 is greater than 0.05. The *disp* predictor was therefore excluded from the final model.
-
 \scriptsize
 ```{r fitFinal}
-        # Final model fitted
-                mfin <- lm(mpg ~ am + cyl + wt + hp, m)
+        mfin <- lm(mpg ~ am + cyl + wt + hp, m)
 ```
 \normalsize
-
 In the final model, the adjusted R-squared value is now about 84%.
-
 
 ## Residuals and Diagnostics
 In the Residuals vs Fitted plot, the residuals are more or less linear on the zero line with a few outliers.
@@ -98,50 +86,51 @@ In the Normal Q-Q plot, the points are almost all along the diagonal therefore t
 
 To determine how influential these outliers were to the prediction model, some regression diagnostics were done using the dffits and rstudent functions. These plots are in the Appendix.  All vaues in the Studentized Residuals plot were within the thresholds while in the dffits plot, there were a few values which were just beyond the thresholds, but not by much.  If the model was adjusted to cater for these we run the risk of overfitting as they were close to the thresholds.
 
-
 ## Results
-
 The summary of the final model is available in the Appendix.  It shows the p-value is $1.506 \times 10^{-10}$, which is about zero, and means that the model describes a statistically significant relationship.
 
 The coefficient for *am1* shows that manual transmission is better for MPG than automatic transmission and is associated with an average increase of 1.8 MPG.
-
 
 \pagebreak
 ## Appendix
 
 ### Exploratory data analysis
-Boxplot on MPG and transmission.
-
-```{r boxplotAM, fig.width=5, fig.height=2}
-        ## Boxplot of MPG against trasmission type
-                m <- mutate(m, Transmission = factor(m$am))
-                levels(m$Transmission) = c("Automatic", "Manual")
-                ggplot(m, aes(x=Transmission, y=mpg, fill = Transmission)) +
-                  geom_boxplot()
+Looking at the dataset.
+\scriptsize
+```{r explDat, results = "hide"}
+        str(m); table(m$am); aggregate(mpg ~ am, m, mean)
 ```
+\normalsize
+
+
+Boxplot on MPG and transmission.
+\scriptsize
+```{r boxplotAM, fig.width=5, fig.height=2}
+        m <- mutate(m, Transmission = factor(m$am))
+        levels(m$Transmission) = c("Automatic", "Manual")
+        ggplot(m, aes(x=Transmission, y=mpg, fill = Transmission)) +
+          geom_boxplot()
+```
+\normalsize
 
 ### Fitting the model
-
-Fit initial model with *am* as the predictor:
+Fit the initial model with *am* as the predictor.
 \scriptsize
 ```{r fitInitModel}
-        # Fit the initial model with am only
-                m$am = factor(m$am)
-                m1 <- lm(mpg ~ am, m)
-                summary(m1)$adj.r.squared
+        m$am = factor(m$am)
+        m1 <- lm(mpg ~ am, m)
+        summary(m1)$adj.r.squared
 ```
 \normalsize
 
-
-Calculate correlation between MPG and all other variables:
+Calculate correlation between MPG and all other variables.
 \scriptsize
 ```{r checkCorr}
-        # Calculate correlation between MPG and all other variables in the dataset
-                cor(mtcars$mpg, mtcars)
+        cor(mtcars$mpg, mtcars)
 ```
 \normalsize
 
-Fit other models:
+Fit other models.
 \scriptsize
 ```{r buildMods, results="hide"}
         # Build models in stepwise fashion
@@ -169,17 +158,15 @@ Fit other models:
 ```
 \normalsize
 
-Use ANOVA to check the necessity of the inclusion of each predictor
+Use ANOVA to check the necessity of the inclusion of each predictor.
 \scriptsize
 ```{r anovaCheck}
-        # Check whether the inclusion of each predictor was necessary
-                anova(m1, m2, m3, m4, m5)
+        anova(m1, m2, m3, m4, m5)
 ```
 \normalsize
 
 ### Residuals & Diagnostics
-
-Plot Residuals:
+Residual plots.
 \scriptsize
 ```{r plotResid, fig.width = 6, fig.height = 3.5}
         ## Plot Residuals vs Fitted and Normal Q-Q plots
@@ -189,7 +176,7 @@ Plot Residuals:
 ```
 \normalsize
 
-Plot diagnostics
+Plot diagnostics.
 \scriptsize
 ```{r diagPlots, fig.width = 5, fig.height = 3.5}
         # Plot dffits and rstudent diagnostic values         
